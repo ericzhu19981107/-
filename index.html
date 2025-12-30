@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>和声练习器</title>
+</head>
+<body>
+
+<h2>🎶 和声练习器</h2>
+
+<select id="mode">
+  <option value="4">高三度</option>
+  <option value="-4">低三度</option>
+  <option value="smart">智能乐理和声</option>
+</select>
+
+<br><br>
+
+<button id="record">开始录音</button>
+<button id="stop">停止并生成</button>
+
+<br><br>
+<audio id="player" controls></audio>
+
+<script>
+let recorder, chunks = [];
+const recordBtn = document.getElementById("record");
+const stopBtn = document.getElementById("stop");
+const player = document.getElementById("player");
+const mode = document.getElementById("mode");
+
+recordBtn.onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  recorder = new MediaRecorder(stream);
+  chunks = [];
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.start();
+};
+
+stopBtn.onclick = async () => {
+  recorder.stop();
+  recorder.onstop = async () => {
+    const blob = new Blob(chunks);
+    const buf = await blob.arrayBuffer();
+    const ctx = new AudioContext();
+    const audio = await ctx.decodeAudioData(buf);
+
+    let semitones = mode.value === "smart"
+      ? (Math.random() > 0.5 ? 3 : 4)
+      : Number(mode.value);
+
+    const harmony = await pitchShift(audio, semitones);
+    const wav = bufferToWave(harmony);
+    player.src = URL.createObjectURL(wav);
+  };
+};
+
+async function pitchShift(buffer, semitones) {
+  const rate = Math.pow(2, semitones / 12);
+  const length = buffer.length / rate;
+  const off = new OfflineAudioContext(
+    buffer.numberOfChannels,
+    length,
+    buffer.sampleRate
+  );
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = rate;
+  src.connect(off.destination);
+  src.start();
+  return await off.startRendering();
+}
+
+function bufferToWave(abuffer) {
+  const num = abuffer.numberOfChannels;
+  const len = abuffer.length * num * 2 + 44;
+  const buf = new ArrayBuffer(len);
+  const view = new DataView(buf);
+  let pos = 0;
+
+  const write = s => { for (let i=0;i<s.length;i++) view.setUint8(pos++, s.charCodeAt(i)); };
+
+  write('RIFF'); view.setUint32(pos, len-8, true); pos+=4;
+  write('WAVEfmt '); view.setUint32(pos,16,true); pos+=4;
+  view.setUint16(pos,1,true); pos+=2;
+  view.setUint16(pos,num,true); pos+=2;
+  view.setUint32(pos,abuffer.sampleRate,true); pos+=4;
+  view.setUint32(pos,abuffer.sampleRate*2*num,true); pos+=4;
+  view.setUint16(pos,num*2,true); pos+=2;
+  view.setUint16(pos,16,true); pos+=2;
+  write('data'); view.setUint32(pos,len-pos-4,true); pos+=4;
+
+  for (let i=0;i<abuffer.length;i++) {
+    for (let c=0;c<num;c++) {
+      view.setInt16(pos, abuffer.getChannelData(c)[i]*0x7fff, true);
+      pos+=2;
+    }
+  }
+  return new Blob([view], {type:'audio/wav'});
+}
+</script>
+
+</body>
+</html>
