@@ -3,24 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>和声练习器</title>
+<title>🎶 智能和声练习器 v2.0</title>
+<style>
+  body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; }
+  h2 { color: #5a67d8; }
+  select, button { padding: 10px 20px; font-size: 16px; margin: 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; }
+  button { background: #5a67d8; color: white; border: none; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  button#stop { background: #e53e3e; }
+  audio { margin-top: 20px; width: 80%; }
+  .status { margin-top: 10px; font-size: 14px; color: #666; }
+</style>
 </head>
 <body>
 
-<h2>🎶 和声练习器</h2>
+<h2>🎶 智能和声练习器</h2>
+<p>注意：原生变速变调会导致时长改变（高音变快，低音变慢）</p>
 
 <select id="mode">
-  <option value="4">高三度</option>
-  <option value="-4">低三度</option>
-  <option value="smart">智能乐理和声</option>
+  <option value="4">大三度 (Major 3rd)</option>
+  <option value="3">小三度 (Minor 3rd)</option>
+  <option value="-4">低大三度 (Lower Maj 3rd)</option>
+  <option value="5">纯五度 (Perfect 5th)</option>
+  <option value="smart">🎲 随机/智能模式</option>
 </select>
 
-<br><br>
+<br>
 
-<button id="record">开始录音</button>
-<button id="stop">停止并生成</button>
+<button id="record">🎤 开始录音</button>
+<button id="stop" disabled>⏹ 停止并生成和声</button>
 
-<br><br>
+<div class="status" id="statusText">准备就绪</div>
+<br>
 <audio id="player" controls></audio>
 
 <script>
@@ -29,56 +43,108 @@ const recordBtn = document.getElementById("record");
 const stopBtn = document.getElementById("stop");
 const player = document.getElementById("player");
 const mode = document.getElementById("mode");
+const statusText = document.getElementById("statusText");
 
+// 1. 开始录音
 recordBtn.onclick = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  recorder = new MediaRecorder(stream);
-  chunks = [];
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.start();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream);
+    chunks = [];
+    
+    recorder.ondataavailable = e => chunks.push(e.data);
+    
+    recorder.onstop = async () => {
+      statusText.innerText = "正在处理音频...";
+      const blob = new Blob(chunks, { type: 'audio/webm' }); // 明确指定格式
+      const buf = await blob.arrayBuffer();
+      const ctx = new AudioContext();
+      const originalAudio = await ctx.decodeAudioData(buf);
+
+      // 计算半音数
+      let semitones = mode.value === "smart"
+        ? (Math.random() > 0.5 ? 3 : 4) // 随机大小三度
+        : Number(mode.value);
+
+      // 生成变调后的音频 Buffer
+      const shiftedBuffer = await pitchShift(originalAudio, semitones);
+      
+      // 混合 原声 + 变调声
+      const mixedBuffer = mixBuffers(ctx, originalAudio, shiftedBuffer);
+
+      // 转换为 WAV 并播放
+      const wav = bufferToWave(mixedBuffer);
+      player.src = URL.createObjectURL(wav);
+      statusText.innerText = `生成完毕！当前和声：${semitones} 半音`;
+    };
+
+    recorder.start();
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    statusText.innerText = "🔴 正在录音...";
+  } catch (err) {
+    alert("无法获取麦克风权限");
+    console.error(err);
+  }
 };
 
-stopBtn.onclick = async () => {
+// 2. 停止录音
+stopBtn.onclick = () => {
   recorder.stop();
-  recorder.onstop = async () => {
-    const blob = new Blob(chunks);
-    const buf = await blob.arrayBuffer();
-    const ctx = new AudioContext();
-    const audio = await ctx.decodeAudioData(buf);
-
-    let semitones = mode.value === "smart"
-      ? (Math.random() > 0.5 ? 3 : 4)
-      : Number(mode.value);
-
-    const harmony = await pitchShift(audio, semitones);
-    const wav = bufferToWave(harmony);
-    player.src = URL.createObjectURL(wav);
-  };
+  recordBtn.disabled = false;
+  stopBtn.disabled = true;
 };
 
+// 3. 核心变调函数 (基于 playbackRate)
 async function pitchShift(buffer, semitones) {
   const rate = Math.pow(2, semitones / 12);
-  const length = buffer.length / rate;
+  // 变调后的时长 = 原时长 / 速率
+  const newLength = Math.ceil(buffer.length / rate); 
+  
   const off = new OfflineAudioContext(
     buffer.numberOfChannels,
-    length,
+    newLength,
     buffer.sampleRate
   );
+  
   const src = off.createBufferSource();
   src.buffer = buffer;
   src.playbackRate.value = rate;
   src.connect(off.destination);
   src.start();
+  
   return await off.startRendering();
 }
 
+// 4. 新增：混合两个 Buffer (原声 + 和声)
+function mixBuffers(ctx, bufferA, bufferB) {
+  // 取最长的那个时长
+  const len = Math.max(bufferA.length, bufferB.length);
+  const channels = bufferA.numberOfChannels;
+  const out = ctx.createBuffer(channels, len, bufferA.sampleRate);
+
+  for (let c = 0; c < channels; c++) {
+    const dataA = bufferA.getChannelData(c);
+    const dataB = bufferB.getChannelData(c);
+    const dataOut = out.getChannelData(c);
+
+    for (let i = 0; i < len; i++) {
+      // 简单的相加混合，并乘以 0.6 防止破音
+      const valA = (i < dataA.length) ? dataA[i] : 0;
+      const valB = (i < dataB.length) ? dataB[i] : 0;
+      dataOut[i] = (valA + valB) * 0.6; 
+    }
+  }
+  return out;
+}
+
+// 5. Buffer 转 WAV (保持原样)
 function bufferToWave(abuffer) {
   const num = abuffer.numberOfChannels;
   const len = abuffer.length * num * 2 + 44;
   const buf = new ArrayBuffer(len);
   const view = new DataView(buf);
   let pos = 0;
-
   const write = s => { for (let i=0;i<s.length;i++) view.setUint8(pos++, s.charCodeAt(i)); };
 
   write('RIFF'); view.setUint32(pos, len-8, true); pos+=4;
@@ -93,7 +159,9 @@ function bufferToWave(abuffer) {
 
   for (let i=0;i<abuffer.length;i++) {
     for (let c=0;c<num;c++) {
-      view.setInt16(pos, abuffer.getChannelData(c)[i]*0x7fff, true);
+      // 增加溢出保护
+      let s = Math.max(-1, Math.min(1, abuffer.getChannelData(c)[i]));
+      view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
       pos+=2;
     }
   }
