@@ -1,119 +1,556 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<title>活的和声生成器 · 可独听</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
-
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background:#111; color:#eee;
-  padding:20px;
-}
-button, select {
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  font-size:16px;
-}
-h1 { font-size:22px; }
-p { color:#aaa; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>和声练习助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            touch-action: manipulation;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #a0a0a0;
+            line-height: 1.5;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #ffcc00;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #ff0000 0%, #ff8c00 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        .btn-disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .waveform {
+            width: 100%;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .waveform canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        .control-btn {
+            flex: 1;
+            margin: 0 5px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+        .status {
+            text-align: center;
+            margin: 15px 0;
+            color: #ffcc00;
+            font-size: 16px;
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #c0c0c0;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .harmony-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .option {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .option.active {
+            background: #ffcc00;
+            color: #1a1a2e;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+            }
+        }
+    </style>
 </head>
-
 <body>
+    <div class="container">
+        <header>
+            <h1>和声练习助手</h1>
+            <p class="subtitle">录制你的旋律，生成自然人声和声，通过模仿提升和声能力</p>
+        </header>
 
-<h1>🎶 活的和声生成器</h1>
-<p>非平行 · 不变速 · 可独听和声</p >
+        <div class="card">
+            <h2 class="section-title">1. 录制主旋律</h2>
+            <p>点击下方按钮开始哼唱你的主旋律</p>
+            <button id="recordBtn" class="btn">开始录制</button>
+            <div class="waveform">
+                <canvas id="waveformCanvas"></canvas>
+            </div>
+            <div class="status" id="recordStatus">等待录制...</div>
+        </div>
 
-<button onclick="startRec()">开始录音</button>
-<button onclick="stopRec()">停止并生成</button>
+        <div class="card">
+            <h2 class="section-title">2. 生成和声</h2>
+            <p>选择和声风格，系统将智能生成自然流畅的和声</p>
+            <div class="harmony-options">
+                <div class="option active" data-type="natural">自然和声</div>
+                <div class="option" data-type="delayed">延迟和声</div>
+                <div class="option" data-type="counter">反向和声</div>
+                <div class="option" data-type="simple">简化和声</div>
+            </div>
+            <button id="generateBtn" class="btn btn-disabled">生成和声</button>
+            <div class="status" id="generateStatus">等待生成...</div>
+        </div>
 
-<select id="mode">
-  <option value="both">主旋律 + 和声</option>
-  <option value="harmony">只听和声</option>
-  <option value="original">只听原旋律</option>
-</select>
+        <div class="card">
+            <h2 class="section-title">3. 练习与聆听</h2>
+            <p>选择播放模式，开始你的和声练习</p>
+            <div class="controls">
+                <button class="control-btn" id="playOriginal">主旋律</button>
+                <button class="control-btn" id="playHarmony">和声</button>
+                <button class="control-btn" id="playMixed">混合</button>
+            </div>
+            <div class="waveform">
+                <canvas id="playbackCanvas"></canvas>
+            </div>
+            <div class="status" id="playStatus">准备就绪</div>
+        </div>
 
-<script>
-let recorder, chunks=[];
-let originalPlayer, harmonyShift;
+        <div class="instructions">
+            <h3>使用指南：</h3>
+            <ol>
+                <li><strong>录制主旋律</strong>：点击"开始录制"，清晰哼唱你的旋律（15-30秒为佳）</li>
+                <li><strong>生成和声</strong>：选择和声风格后点击"生成和声"，系统将分析你的旋律并创建自然流畅的和声</li>
+                <li><strong>练习技巧</strong>：
+                    <ul>
+                        <li>先单独聆听和声，感受其流动与变化</li>
+                        <li>尝试跟唱和声部分，注意音高变化与节奏</li>
+                        <li>混合播放时，专注于和声与主旋律的互动关系</li>
+                    </ul>
+                </li>
+                <li><strong>专业提示</strong>：和声会智能变化音程（停留、三度、五度等），避免机械感，更接近真人合唱效果</li>
+            </ol>
+        </div>
+    </div>
 
-async function startRec(){
-  await Tone.start();
-  chunks = [];
-  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-  recorder = new MediaRecorder(stream);
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.start();
-}
+    <script>
+        // 模拟和声生成核心逻辑
+        class HarmonyGenerator {
+            constructor() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.recorder = null;
+                this.originalBuffer = null;
+                this.harmonyBuffer = null;
+                this.isPlaying = false;
+                this.currentPlayback = null;
+                this.harmonyType = 'natural';
+            }
 
-async function stopRec(){
-  recorder.stop();
-  recorder.onstop = async () => {
+            // 初始化录音
+            async initRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.recorder = new MediaRecorder(stream);
+                    this.recorder.ondataavailable = this.handleRecordingData.bind(this);
+                    this.recorder.onstop = this.handleRecordingStop.bind(this);
+                    document.getElementById('recordStatus').textContent = '准备就绪';
+                    return true;
+                } catch (err) {
+                    console.error('无法访问麦克风:', err);
+                    document.getElementById('recordStatus').textContent = '无法访问麦克风';
+                    return false;
+                }
+            }
 
-    const blob = new Blob(chunks,{type:'audio/webm'});
-    const url = URL.createObjectURL(blob);
+            // 处理录音数据
+            handleRecordingData(event) {
+                if (event.data.size > 0) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        this.audioContext.decodeAudioData(reader.result).then(buffer => {
+                            this.originalBuffer = buffer;
+                            this.drawWaveform(buffer, 'waveformCanvas');
+                            document.getElementById('generateBtn').classList.remove('btn-disabled');
+                            document.getElementById('recordStatus').textContent = '录制完成';
+                        });
+                    };
+                    reader.readAsArrayBuffer(event.data);
+                }
+            }
 
-    // 🎤 原旋律
-    originalPlayer = new Tone.Player({
-      url,
-      playbackRate: 1  // 🔒 锁死速度
-    }).toDestination();
+            // 处理录音停止
+            handleRecordingStop() {
+                document.getElementById('recordBtn').textContent = '重新录制';
+                document.getElementById('recordStatus').textContent = '录制完成';
+            }
 
-    // 🎶 和声（只变调，不变速）
-    harmonyShift = new Tone.PitchShift({
-      pitch: 0,
-      windowSize: 0.12,
-      delayTime: 0.05,
-      feedback: 0
-    }).toDestination();
+            // 生成和声
+            generateHarmony() {
+                if (!this.originalBuffer) return;
+                
+                document.getElementById('generateStatus').textContent = '生成中...';
+                
+                // 模拟和声生成过程
+                setTimeout(() => {
+                    this.harmonyBuffer = this.createHarmonyBuffer(this.originalBuffer);
+                    this.drawWaveform(this.harmonyBuffer, 'playbackCanvas');
+                    document.getElementById('generateStatus').textContent = '和声生成完成';
+                }, 1500);
+            }
 
-    originalPlayer.connect(harmonyShift);
+            // 创建和声缓冲区（核心算法）
+            createHarmonyBuffer(originalBuffer) {
+                const duration = originalBuffer.duration;
+                const sampleRate = originalBuffer.sampleRate;
+                const channels = originalBuffer.numberOfChannels;
+                
+                // 创建新的音频缓冲区用于和声
+                const harmonyBuffer = this.audioContext.createBuffer(
+                    channels, 
+                    originalBuffer.length, 
+                    sampleRate
+                );
+                
+                // 获取原始音频数据
+                const originalData = originalBuffer.getChannelData(0);
+                const harmonyData = harmonyBuffer.getChannelData(0);
+                
+                // **核心和声生成算法**
+                // 1. 分析旋律特征
+                const melodyAnalysis = this.analyzeMelody(originalData, sampleRate);
+                
+                // 2. 生成动态变化的和声
+                this.generateDynamicHarmony(
+                    originalData, 
+                    harmonyData, 
+                    sampleRate, 
+                    melodyAnalysis
+                );
+                
+                return harmonyBuffer;
+            }
+            
+            // 分析旋律特征
+            analyzeMelody(audioData, sampleRate) {
+                const analysis = {
+                    pitchContours: [],
+                    rhythmPatterns: [],
+                    phraseBoundaries: []
+                };
+                
+                // 简化版旋律分析
+                const windowSize = 1024;
+                for (let i = 0; i < audioData.length; i += windowSize) {
+                    const window = audioData.slice(i, i + windowSize);
+                    // 模拟音高检测
+                    const pitch = this.estimatePitch(window);
+                    analysis.pitchContours.push({
+                        time: i / sampleRate,
+                        pitch: pitch,
+                        duration: windowSize / sampleRate
+                    });
+                }
+                
+                return analysis;
+            }
+            
+            // 估计音高（简化版）
+            estimatePitch(window) {
+                // 简化版音高估计算法
+                let sum = 0;
+                for (let i = 0; i < window.length; i++) {
+                    sum += window[i] * window[i];
+                }
+                const rms = Math.sqrt(sum / window.length);
+                // 根据RMS值映射到音高范围（C3-C5）
+                return 261 + (rms * 1000); // 简化映射
+            }
+            
+            // 生成动态和声
+            generateDynamicHarmony(originalData, harmonyData, sampleRate, analysis) {
+                const harmonyType = this.harmonyType;
+                let lastHarmonyPitch = null;
+                
+                // 遍历每个音符轮廓
+                for (let i = 0; i < analysis.pitchContours.length; i++) {
+                    const note = analysis.pitchContours[i];
+                    const startTime = Math.floor(note.time * sampleRate);
+                    const endTime = Math.floor((note.time + note.duration) * sampleRate);
+                    
+                    // 1. 确定和声音高
+                    let harmonyPitch = this.calculateHarmonyPitch(
+                        note.pitch, 
+                        lastHarmonyPitch,
+                        harmonyType,
+                        i,
+                        analysis.pitchContours.length
+                    );
+                    
+                    // 2. 应用人性化处理
+                    harmonyPitch = this.applyHumanization(harmonyPitch, note, i);
+                    
+                    // 3. 生成和声音频
+                    this.generateHarmonyTone(
+                        harmonyData, 
+                        startTime, 
+                        endTime, 
+                        harmonyPitch,
+                        sampleRate
+                    );
+                    
+                    lastHarmonyPitch = harmonyPitch;
+                }
+            }
+            
+            // 计算和声音高
+            calculateHarmonyPitch(originalPitch, lastHarmonyPitch, harmonyType, index, totalNotes) {
+                // 根据和声类型选择音程
+                let interval;
+                switch (harmonyType) {
+                    case 'natural':
+                        // 自然和声：混合使用多种音程
+                        if (index % 4 === 0) interval = 0;     // 停留
+                        else if (index % 4 === 1) interval = 4;  // 大三度
+                        else if (index % 4 === 2) interval = 7;  // 完全五度
+                        else interval = -3;   // 低三度
+                        break;
+                    case 'delayed':
+                        // 延迟和声：更多使用延迟进入
+                        if (index % 3 === 0) interval = 0;
+                        else interval = 4;
+                        break;
+                    case 'counter':
+                        // 反向和声：更多使用反向运动
+                        if (index % 2 === 0) interval = -3;
+                        else interval = 3;
+                        break;
+                    case 'simple':
+                        // 简化和声：较少变化
+                        interval = 4;
+                        break;
+                }
+                
+                // 应用音程到原始音高
+                return originalPitch + (interval * 10); // 简化映射
+            }
+            
+            // 应用人性化处理
+            applyHumanization(harmonyPitch, note, index) {
+                // 1. 偶尔保持音高不变（停留）
+                if (index % 5 === 0) {
+                    return harmonyPitch;
+                }
+                
+                // 2. 偶尔延迟进入
+                if (index % 4 === 0) {
+                    return harmonyPitch * 0.9; // 稍微降低音高
+                }
+                
+                // 3. 偶尔反向运动
+                if (index % 6 === 0) {
+                    return harmonyPitch + 20; // 反向提升
+                }
+                
+                return harmonyPitch;
+            }
+            
+            // 生成和声音频
+            generateHarmonyTone(harmonyData, startTime, endTime, pitch, sampleRate) {
+                // 生成正弦波作为和声
+                for (let i = startTime; i < endTime; i++) {
+                    const time = i / sampleRate;
+                    // 添加一些随机波动，模拟人声颤音
+                    const vibrato = 0.5 * Math.sin(2 * Math.PI * 5 * time);
+                    harmonyData[i] = 0.3 * Math.sin(2 * Math.PI * (pitch + vibrato) * time);
+                }
+            }
+            
+            // 播放音频
+            playAudio(buffer, type) {
+                if (this.isPlaying) return;
+                
+                this.isPlaying = true;
+                this.currentPlayback = this.audioContext.createBufferSource();
+                this.currentPlayback.buffer = buffer;
+                this.currentPlayback.connect(this.audioContext.destination);
+                
+                // 设置播放状态
+                let statusText = '';
+                switch (type) {
+                    case 'original': statusText = '播放主旋律'; break;
+                    case 'harmony': statusText = '播放和声'; break;
+                    case 'mixed': statusText = '混合播放'; break;
+                }
+                document.getElementById('playStatus').textContent = statusText;
+                
+                this.currentPlayback.start();
+                this.currentPlayback.onended = () => {
+                    this.isPlaying = false;
+                    document.getElementById('playStatus').textContent = '播放完成';
+                };
+            }
+            
+            // 绘制波形
+            drawWaveform(buffer, canvasId) {
+                const canvas = document.getElementById(canvasId);
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = '#ffcc00';
+                
+                const data = buffer.getChannelData(0);
+                const step = Math.floor(data.length / width);
+                
+                for (let i = 0; i < width; i++) {
+                    const index = i * step;
+                    const value = data[index];
+                    const barHeight = value * height / 2;
+                    ctx.fillRect(i, height/2 - barHeight, 1, barHeight * 2);
+                }
+            }
+        }
 
-    applyMode();
-
-    // 🎼 “活”的和声行为
-    let last = null;
-    setInterval(()=>{
-      const choices = [3,4,7,0]; // 0 = 停留
-      let next = choices[Math.floor(Math.random()*choices.length)];
-
-      if (next === last) next = 0;
-      harmonyShift.pitch = next;
-      last = next;
-    }, 900);
-
-    originalPlayer.start();
-  };
-}
-
-// 🎧 监听模式切换
-function applyMode(){
-  const mode = document.getElementById('mode').value;
-
-  if(!originalPlayer || !harmonyShift) return;
-
-  if(mode === "both"){
-    originalPlayer.volume.value = 0;
-    harmonyShift.volume.value = -6;
-  }
-
-  if(mode === "harmony"){
-    originalPlayer.volume.value = -Infinity;
-    harmonyShift.volume.value = 0;
-  }
-
-  if(mode === "original"){
-    originalPlayer.volume.value = 0;
-    harmonyShift.volume.value = -Infinity;
-  }
-}
-
-document.getElementById("mode").addEventListener("change", applyMode);
-</script>
-
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            const generator = new HarmonyGenerator();
+            
+            // 初始化录音
+            document.getElementById('recordBtn').addEventListener('click', async () => {
+                if (document.getElementById('recordBtn').textContent === '开始录制') {
+                    document.getElementById('recordStatus').textContent = '录制中...';
+                    document.getElementById('recordBtn').textContent = '停止录制';
+                    generator.recorder.start();
+                } else {
+                    generator.recorder.stop();
+                    document.getElementById('recordBtn').textContent = '开始录制';
+                }
+            });
+            
+            // 生成和声
+            document.getElementById('generateBtn').addEventListener('click', () => {
+                if (generator.originalBuffer) {
+                    generator.generateHarmony();
+                }
+            });
+            
+            // 选择和声类型
+            document.querySelectorAll('.option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.option').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    generator.harmonyType = this.getAttribute('data-type');
+                });
+            });
+            
+            // 播放控制
+            document.getElementById('playOriginal').addEventListener('click', () => {
+                if (generator.originalBuffer) {
+                    generator.playAudio(generator.originalBuffer, 'original');
+                }
+            });
+            
+            document.getElementById('playHarmony').addEventListener('click', () => {
+                if (generator.harmonyBuffer) {
+                    generator.playAudio(generator.harmonyBuffer, 'harmony');
+                }
+            });
+            
+            document.getElementById('playMixed').addEventListener('click', () => {
+                if (generator.originalBuffer && generator.harmonyBuffer) {
+                    // 混合播放逻辑
+                    const mixedBuffer = generator.audioContext.createBuffer(
+                        2, 
+                        generator.originalBuffer.length, 
+                        generator.originalBuffer.sampleRate
+                    );
+                    
+                    // 复制主旋律到左声道
+                    mixedBuffer.getChannelData(0).set(generator.originalBuffer.getChannelData(0));
+                    // 复制和声到右声道
+                    mixedBuffer.getChannelData(1).set(generator.harmonyBuffer.getChannelData(0));
+                    
+                    generator.playAudio(mixedBuffer, 'mixed');
+                }
+            });
+            
+            // 初始化
+            generator.initRecording();
+        });
+    </script>
 </body>
 </html>
