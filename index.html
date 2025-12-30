@@ -1,153 +1,119 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<title>活的和声生成器 · 可独听</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎶 智能即兴和声 v4.2</title>
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+
 <style>
-  body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background: #f4f7f6; }
-  .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-  h2 { color: #4c51bf; }
-  button { width: 100%; padding: 15px; margin: 10px 0; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
-  #record { background: #4c51bf; color: white; }
-  #stop { background: #f56565; color: white; }
-  #stop:disabled { background: #edf2f7; color: #a0aec0; }
-  .status { margin: 15px 0; font-weight: bold; color: #5a67d8; }
-  audio { width: 100%; margin-top: 20px; }
-  .options { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background:#111; color:#eee;
+  padding:20px;
+}
+button, select {
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  font-size:16px;
+}
+h1 { font-size:22px; }
+p { color:#aaa; }
 </style>
 </head>
+
 <body>
 
-<div class="container">
-  <h2>🎶 即兴和声练习器</h2>
-  <div class="status" id="statusText">等待初始化...</div>
-  
-  <div class="options">
-    <input type="checkbox" id="soloToggle">
-    <label for="soloToggle">只听即兴和声</label>
-  </div>
+<h1>🎶 活的和声生成器</h1>
+<p>非平行 · 不变速 · 可独听和声</p >
 
-  <button id="record">🎤 开始录音</button>
-  <button id="stop" disabled>⏹ 停止并合成</button>
-  
-  <audio id="player" controls></audio>
-</div>
+<button onclick="startRec()">开始录音</button>
+<button onclick="stopRec()">停止并生成</button>
+
+<select id="mode">
+  <option value="both">主旋律 + 和声</option>
+  <option value="harmony">只听和声</option>
+  <option value="original">只听原旋律</option>
+</select>
 
 <script>
-let recorder, chunks = [];
-const statusText = document.getElementById("statusText");
-const recordBtn = document.getElementById("record");
-const stopBtn = document.getElementById("stop");
-const player = document.getElementById("player");
-const soloToggle = document.getElementById("soloToggle");
+let recorder, chunks=[];
+let originalPlayer, harmonyShift;
 
-window.onload = () => {
-  if (typeof Tone === 'undefined') statusText.innerText = "❌ 库加载失败";
-  else statusText.innerText = "✅ 准备就绪";
-};
+async function startRec(){
+  await Tone.start();
+  chunks = [];
+  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.start();
+}
 
-recordBtn.onclick = async () => {
-  try {
-    await Tone.start();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-    recorder.ondataavailable = e => chunks.push(e.data);
-    recorder.onstop = processAudio;
-    recorder.start();
-    
-    recordBtn.disabled = true;
-    stopBtn.disabled = false;
-    statusText.innerText = "🔴 录音中，请唱歌...";
-  } catch (err) {
-    statusText.innerText = "❌ 无法访问麦克风";
-  }
-};
-
-stopBtn.onclick = () => {
+async function stopRec(){
   recorder.stop();
-  recorder.stream.getTracks().forEach(t => t.stop());
-  recordBtn.disabled = false;
-  stopBtn.disabled = true;
-};
+  recorder.onstop = async () => {
 
-async function processAudio() {
-  statusText.innerText = "⏳ 正在激发即兴伴唱...";
-  try {
-    const blob = new Blob(chunks);
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer);
+    const blob = new Blob(chunks,{type:'audio/webm'});
+    const url = URL.createObjectURL(blob);
 
-    const isSolo = soloToggle.checked;
-    const renderDuration = audioBuffer.duration + 1.0;
+    // 🎤 原旋律
+    originalPlayer = new Tone.Player({
+      url,
+      playbackRate: 1  // 🔒 锁死速度
+    }).toDestination();
 
-    const renderedBuffer = await Tone.Offline(async () => {
-      const source = new Tone.Player(audioBuffer);
-      
-      // 1. 核心变调器
-      const shifter = new Tone.PitchShift({ windowSize: 0.1 });
-      
-      // 2. 效果链（去掉 .start() 以修复报错）
-      const vibrato = new Tone.Vibrato(4, 0.1); 
-      const chorus = new Tone.Chorus(2, 2, 0.2); 
-      const delay = new Tone.Delay(0.03); // 30ms 延迟，增加独立感
+    // 🎶 和声（只变调，不变速）
+    harmonyShift = new Tone.PitchShift({
+      pitch: 0,
+      windowSize: 0.12,
+      delayTime: 0.05,
+      feedback: 0
+    }).toDestination();
 
-      // 3. 声像定位 (Stereo Panning)
-      const dryPan = new Tone.Panner(-0.4).toDestination(); // 原声靠左
-      const wetPan = new Tone.Panner(0.5).toDestination();  // 和声靠右
+    originalPlayer.connect(harmonyShift);
 
-      // 4. 即兴逻辑：每隔一段时间随机变调
-      for(let t = 0; t < audioBuffer.duration; t += 0.6) {
-        Tone.Transport.schedule(() => {
-          // 在 0(原音), 3(小三), 4(大三), 7(五度) 之间跳动
-          shifter.pitch = [0, 3, 4, 7, 5][Math.floor(Math.random() * 5)];
-        }, t);
-      }
+    applyMode();
 
-      if (isSolo) {
-        source.chain(shifter, vibrato, chorus, wetPan);
-      } else {
-        source.connect(dryPan); // 原声
-        source.chain(shifter, vibrato, delay, chorus, wetPan); // 和声
-        source.volume.value = -1;
-      }
+    // 🎼 “活”的和声行为
+    let last = null;
+    setInterval(()=>{
+      const choices = [3,4,7,0]; // 0 = 停留
+      let next = choices[Math.floor(Math.random()*choices.length)];
 
-      source.start(0);
-      Tone.Transport.start();
-    }, renderDuration);
+      if (next === last) next = 0;
+      harmonyShift.pitch = next;
+      last = next;
+    }, 900);
 
-    player.src = URL.createObjectURL(bufferToWave(renderedBuffer));
-    statusText.innerText = "✨ 即兴伴唱已生成！";
-  } catch (e) {
-    statusText.innerText = "❌ 失败: " + e.message;
+    originalPlayer.start();
+  };
+}
+
+// 🎧 监听模式切换
+function applyMode(){
+  const mode = document.getElementById('mode').value;
+
+  if(!originalPlayer || !harmonyShift) return;
+
+  if(mode === "both"){
+    originalPlayer.volume.value = 0;
+    harmonyShift.volume.value = -6;
+  }
+
+  if(mode === "harmony"){
+    originalPlayer.volume.value = -Infinity;
+    harmonyShift.volume.value = 0;
+  }
+
+  if(mode === "original"){
+    originalPlayer.volume.value = 0;
+    harmonyShift.volume.value = -Infinity;
   }
 }
 
-function bufferToWave(abuffer) {
-  let numOfChan = abuffer.numberOfChannels,
-    length = abuffer.length * numOfChan * 2 + 44,
-    buffer = new ArrayBuffer(length),
-    view = new DataView(buffer),
-    channels = [], i, sample, offset = 0, pos = 0;
-  const setUint16 = (d) => { view.setUint16(pos, d, true); pos += 2; };
-  const setUint32 = (d) => { view.setUint32(pos, d, true); pos += 4; };
-  setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
-  setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
-  setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
-  setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
-  for (i = 0; i < numOfChan; i++) channels.push(abuffer.getChannelData(i));
-  while (pos < length) {
-    for (i = 0; i < numOfChan; i++) {
-      sample = Math.max(-1, Math.min(1, channels[i][offset]));
-      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-      view.setInt16(pos, sample, true); pos += 2;
-    }
-    offset++;
-  }
-  return new Blob([buffer], { type: "audio/wav" });
-}
+document.getElementById("mode").addEventListener("change", applyMode);
 </script>
+
 </body>
 </html>
