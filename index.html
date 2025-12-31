@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>人声和声生成器 - AI Harmony</title>
+    <title>人声和声生成器 - 修复版</title>
     <style>
-        /* --- 这一部分保留你原有的 CSS，此处仅补充缺失或需要调整的部分 --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -26,9 +25,10 @@
         header p { color: #888; font-size: 1.1rem; }
         .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 20px; }
         @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+        
         .card {
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
+border-radius: 20px;
             padding: 25px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -38,63 +38,84 @@
         .card h2 { font-size: 1.3rem; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
         .card h2 .icon { width: 35px; height: 35px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
         
-        /* 录音按钮样式 */
-.record-controls { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        /* 录音区域 */
+        .record-controls { display: flex; flex-direction: column; align-items: center; gap: 20px; }
         .record-btn {
             width: 100px; height: 100px; border-radius: 50%; border: none; cursor: pointer; font-size: 2rem;
-            transition: all 0.3s; position: relative; overflow: hidden;
+transition: all 0.3s; position: relative; overflow: hidden;
+            background: linear-gradient(145deg, #ff6b6b, #ee5a5a); 
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
         }
-        .record-btn.idle { background: linear-gradient(145deg, #ff6b6b, #ee5a5a); box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4); }
-        .record-btn.recording { background: linear-gradient(145deg, #ff4757, #ff3838); animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); } 50% { box-shadow: 0 0 0 20px rgba(255, 71, 87, 0); } }
+        .record-btn.recording { 
+            background: linear-gradient(145deg, #ff4757, #ff3838); 
+            animation: pulse 1s infinite; 
+        }
+        @keyframes pulse { 
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); } 
+            50% { box-shadow: 0 0 0 20px rgba(255, 71, 87, 0); } 
+        }
+        
+        .record-time { font-size: 1.5rem; font-family: monospace; color: #00d4ff; }
         
         .waveform-container { margin-top: 20px; background: rgba(0, 0, 0, 0.3); border-radius: 15px; padding: 15px; height: 100px; display: flex; align-items: center;}
         .waveform-canvas { width: 100%; height: 100%; display: block; }
         
         .pitch-display { display: flex; justify-content: space-around; margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;}
-.pitch-item { text-align: center; }
+        .pitch-item { text-align: center; }
         .pitch-item .value { font-size: 1.2rem; font-weight: bold; color: #00d4ff; }
         
+        /* 文件上传 */
         .file-upload { margin-top: 20px; padding: 20px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 15px; text-align: center; cursor: pointer; }
+        .file-upload:hover { border-color: #00d4ff; background: rgba(0, 212, 255, 0.05); }
         .file-upload input { display: none; }
 
         /* 和声控制 */
         .harmony-voices { display: flex; flex-direction: column; gap: 15px; }
         .voice-control { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; border: 1px solid transparent; }
         .voice-control.active { border-color: rgba(123, 44, 191, 0.5); background: rgba(123, 44, 191, 0.1); }
-        .voice-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .voice-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; }
         .voice-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        select, input[type="range"] { width: 100%; background: rgba(255,255,255,0.1); border:none; padding: 5px; color: white; border-radius: 5px; }
+        
+        select, input[type="range"] { 
+            width: 100%; 
+            background: rgba(255,255,255,0.1); 
+            border:none; 
+            padding: 8px; 
+            color: #fff; 
+            border-radius: 5px; 
+        }
+        select option { background: #1a1a2e; }
 
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: all 0.2s; }
+        /* 按钮 */
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: all 0.2s; font-size: 1rem; }
         .btn-primary { background: linear-gradient(135deg, #7b2cbf, #9d4edd); width: 100%; margin-top: 15px; font-size: 1.1rem; }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-small { padding: 5px 10px; font-size: 0.9rem; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(123, 44, 191, 0.4); }
+        .btn-small { padding: 5px 10px; font-size: 0.9rem; background: rgba(255,255,255,0.1); }
 
-        /* 播放器 */
-        .preview-section .track-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; }
+        /* 播放器轨道 */
+        .preview-section .track-item { display: flex; align-items: center; gap: 10px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; }
         .track-color { width: 5px; height: 30px; border-radius: 5px; }
-        .track-main .track-color { bg: #00d4ff; }
-        .track-name { flex: 1; }
-        .track-controls { display: flex; align-items: center; gap: 8px; }
+        .track-name { flex: 1; font-weight: bold; }
+        .track-controls { display: flex; align-items: center; gap: 10px; }
         .volume-slider { width: 80px; }
         
-        .mix-controls { display: flex; justify-content: center; gap: 20px; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .mix-btn { width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.2rem; color: white; display: flex; align-items: center; justify-content: center; }
-        .play-all-btn { background: #00d4ff; }
+        .mix-controls { display: flex; justify-content: center; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .mix-btn { width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.5rem; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;}
+        .mix-btn:hover:not(:disabled) { transform: scale(1.1); }
+        .play-all-btn { background: #00d4ff; box-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
         .stop-btn { background: #ff6b6b; }
+        .mix-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
 
         .full-width { grid-column: 1 / -1; }
         .pitch-canvas { width: 100%; height: 150px; background: rgba(0,0,0,0.2); border-radius: 10px; }
         
-        /* 导出区域 */
-        .export-section .export-actions { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
-        .loading-text { font-size: 0.9rem; color: #00d4ff; text-align: center; margin-top: 5px; display: none; }
+        .loading-text { font-size: 0.9rem; color: #00d4ff; text-align: center; margin-top: 10px; display: none; }
         
-        /* 轨道颜色标志 */
+        /* 颜色定义 */
         .track-main .track-color { background: #00d4ff; }
         .track-harmony1 .track-color { background: #7b2cbf; }
-.track-harmony2 .track-color { background: #ff6b6b; }
+        .track-harmony2 .track-color { background: #ff6b6b; }
         .track-harmony3 .track-color { background: #2ecc71; }
     </style>
 </head>
@@ -102,16 +123,16 @@
     <div class="container">
         <header>
             <h1>🎵 人声和声生成器</h1>
-            <p>录制或上传您的哼唱，使用前端技术自动生成和谐的多声部</p>
+            <p>录音 - 生成和声 - 播放导出</p>
         </header>
         
         <div class="main-grid">
             <!-- 录音区域 -->
             <div class="card record-section">
-                <h2><span class="icon" style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a);">🎤</span>录音 / 上传</h2>
+                <h2><span class="icon" style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a);">🎤</span>第1步：录音</h2>
                 <div class="record-controls">
-                    <button id="recordBtn" class="record-btn idle">🎙️</button>
-                    <div class="record-status" id="recordStatus">点击开始录音</div>
+                    <button id="recordBtn" class="record-btn">🎙️</button>
+                    <div class="record-status" id="recordStatus">点击麦克风开始录音</div>
                     <div class="record-time" id="recordTime">00:00</div>
                 </div>
                 <div class="waveform-container">
@@ -119,7 +140,7 @@
                 </div>
                 <div class="pitch-display">
                     <div class="pitch-item">
-                        <label>当前音高</label>
+                        <label>音高(Hz)</label>
                         <div class="value" id="currentPitch">--</div>
                     </div>
                     <div class="pitch-item">
@@ -135,21 +156,21 @@
 
             <!-- 和声设置 -->
             <div class="card harmony-section">
-                <h2><span class="icon" style="background: linear-gradient(135deg, #7b2cbf, #9d4edd);">🎹</span>和声设置</h2>
+                <h2><span class="icon" style="background: linear-gradient(135deg, #7b2cbf, #9d4edd);">🎹</span>第2步：设置与生成</h2>
                 <div class="harmony-voices">
                     <!-- 声部 1 -->
                     <div class="voice-control active" id="voice1Control">
                         <div class="voice-header">
-                            <label><input type="checkbox" id="voice1Enable" checked> 和声声部 1</label>
+                            <label><input type="checkbox" id="voice1Enable" checked> 和声 1 (紫色)</label>
                             <span style="color: #7b2cbf;">●</span>
                         </div>
                         <div class="voice-settings">
                             <select id="voice1Interval">
-                                <option value="-5">下方四度 (-5 ST)</option>
-                                <option value="-4">下方大三度 (-4 ST)</option>
-                                <option value="-3" selected>下方小三度 (-3 ST)</option>
-                                <option value="3">上方小三度 (+3 ST)</option>
-                                <option value="4">上方大三度 (+4 ST)</option>
+                                <option value="-5">下方四度 (-5)</option>
+                                <option value="-4">下方大三度 (-4)</option>
+                                <option value="-3" selected>下方小三度 (-3)</option>
+                                <option value="3">上方小三度 (+3)</option>
+                                <option value="4">上方大三度 (+4)</option>
                             </select>
                             <input type="range" id="voice1Volume" min="0" max="100" value="70" title="音量">
                         </div>
@@ -157,14 +178,14 @@
                     <!-- 声部 2 -->
                     <div class="voice-control active" id="voice2Control">
                         <div class="voice-header">
-                            <label><input type="checkbox" id="voice2Enable"> 和声声部 2</label>
+                            <label><input type="checkbox" id="voice2Enable"> 和声 2 (红色)</label>
                             <span style="color: #ff6b6b;">●</span>
                         </div>
                         <div class="voice-settings">
                             <select id="voice2Interval">
-                                <option value="-7">下方五度 (-7 ST)</option>
-                                <option value="5">上方四度 (+5 ST)</option>
-                                <option value="7" selected>上方五度 (+7 ST)</option>
+                                <option value="-7">下方五度 (-7)</option>
+                                <option value="5">上方四度 (+5)</option>
+                                <option value="7" selected>上方五度 (+7)</option>
                             </select>
                             <input type="range" id="voice2Volume" min="0" max="100" value="60" title="音量">
                         </div>
@@ -172,13 +193,13 @@
                      <!-- 声部 3 -->
                      <div class="voice-control active" id="voice3Control">
                         <div class="voice-header">
-                            <label><input type="checkbox" id="voice3Enable"> 和声声部 3</label>
+                            <label><input type="checkbox" id="voice3Enable"> 和声 3 (绿色)</label>
                             <span style="color: #2ecc71;">●</span>
                         </div>
                         <div class="voice-settings">
                             <select id="voice3Interval">
-                                <option value="-12">下方八度 (-12 ST)</option>
-                                <option value="12">上方八度 (+12 ST)</option>
+                                <option value="-12">下方八度 (-12)</option>
+                                <option value="12">上方八度 (+12)</option>
                             </select>
                             <input type="range" id="voice3Volume" min="0" max="100" value="50" title="音量">
                         </div>
@@ -186,19 +207,13 @@
                 </div>
                 <div class="generate-section">
                     <button id="generateBtn" class="btn btn-primary" disabled>✨ 生成和声</button>
-                    <div id="genStatus" class="loading-text">正在处理音频... 0%</div>
+                    <div id="genStatus" class="loading-text">正在处理...</div>
                 </div>
-            </div>
-
-            <!-- 音高分析可视化 (Full Width) -->
-            <div class="card full-width">
-                 <h2><span class="icon" style="background: linear-gradient(135deg, #f39c12, #e67e22);">📊</span>音高轨迹</h2>
-                 <canvas id="pitchCanvas" class="pitch-canvas"></canvas>
             </div>
 
             <!-- 预览与导出 -->
             <div class="card full-width preview-section">
-                <h2><span class="icon" style="background: linear-gradient(135deg, #00d4ff, #0099cc);">🎧</span>播放与导出</h2>
+                <h2><span class="icon" style="background: linear-gradient(135deg, #00d4ff, #0099cc);">🎧</span>第3步：播放与导出</h2>
                 
                 <div class="player-controls">
                     <!-- 主旋律 -->
@@ -242,13 +257,19 @@
                 <div class="mix-controls">
                     <button class="mix-btn play-all-btn" id="playAllBtn" title="播放" disabled>▶</button>
                     <button class="mix-btn stop-btn" id="stopAllBtn" title="停止" disabled>⏹</button>
-                    <button class="btn btn-primary" id="downloadBtn" style="width: auto; margin-top: 0;" disabled>📥 导出混音 (WAV)</button>
+                    <button class="btn btn-primary" id="downloadBtn" style="width: auto; margin-top: 0; margin-left:20px;" disabled>📥 导出WAV</button>
                 </div>
             </div>
+            
+             <!-- 音高可视化 -->
+             <div class="card full-width">
+                <h2><span class="icon" style="background: linear-gradient(135deg, #f39c12, #e67e22);">📊</span>音高轨迹</h2>
+                <canvas id="pitchCanvas" class="pitch-canvas"></canvas>
+           </div>
         </div>
     </div>
 
-    <!-- 核心逻辑脚本 -->
+    <!-- 修复后的完整脚本 -->
     <script>
         // --- 1. 全局变量 ---
         let audioCtx;
@@ -264,20 +285,8 @@
         let recordingTimerInterval;
         let analyser, dataArray, bufferLength;
         let drawVisual;
-
         // 音符名称映射
         const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-        // --- 2. 初始化与录音 ---
-        
-        async function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                await audioCtx.resume();
-            }
-        }
 
         const recordBtn = document.getElementById('recordBtn');
         const recordStatus = document.getElementById('recordStatus');
@@ -285,8 +294,19 @@
         const canvas = document.getElementById('waveformCanvas');
         const canvasCtx = canvas.getContext('2d');
 
+        // --- 2. 初始化音频 ---
+        async function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+}
+
+        // --- 3. 录音逻辑 ---
         recordBtn.addEventListener('click', async () => {
-            await initAudio();
+            await initAudio(); // 确保音频上下文已启动
 
             if (!isRecording) {
                 // 开始录音
@@ -295,7 +315,7 @@
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
 
-                    // 设置可视化
+                    // 设置可视化源
                     const source = audioCtx.createMediaStreamSource(stream);
                     analyser = audioCtx.createAnalyser();
                     analyser.fftSize = 2048;
@@ -311,33 +331,30 @@
                         recordStatus.innerText = "录音完成";
                         document.getElementById('generateBtn').disabled = false;
                         analyzePitch(originalBuffer);
-                        visualizeBuffer(); // 画出静态波形
+                        visualizeBuffer(); 
                         
-                        // 停止麦克风流
                         stream.getTracks().forEach(track => track.stop());
                     };
 
                     mediaRecorder.start();
                     isRecording = true;
-                    recordBtn.classList.remove('idle');
                     recordBtn.classList.add('recording');
                     recordBtn.innerText = "⏹";
-                    recordStatus.innerText = "正在录音...";
+recordStatus.innerText = "正在录音...";
                     
                     startTime = Date.now();
                     recordingTimerInterval = setInterval(updateRecordTimer, 100);
-                    visualizeLive(); // 实时波形
+                    visualizeLive();
 
                 } catch (err) {
-                    console.error("无法访问麦克风", err);
-                    alert("无法访问麦克风，请检查权限。");
+                    console.error("麦克风错误", err);
+alert("无法访问麦克风，请检查浏览器权限。");
                 }
             } else {
                 // 停止录音
                 mediaRecorder.stop();
                 isRecording = false;
                 recordBtn.classList.remove('recording');
-                recordBtn.classList.add('idle');
                 recordBtn.innerText = "🎙️";
                 clearInterval(recordingTimerInterval);
                 cancelAnimationFrame(drawVisual);
@@ -352,8 +369,8 @@
             recordTimeDisplay.innerText = `${mins.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
         }
 
-        // --- 3. 文件上传 ---
-        document.querySelector('.file-upload').addEventListener('click', () => {
+        // --- 文件上传 ---
+document.querySelector('.file-upload').addEventListener('click', () => {
             document.getElementById('audioFile').click();
         });
 
@@ -361,124 +378,100 @@
             if (e.target.files.length > 0) {
                 await initAudio();
                 const file = e.target.files[0];
-                recordStatus.innerText = "正在加载文件...";
-                const arrayBuffer = await file.arrayBuffer();
-                originalBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                recordStatus.innerText = `文件已加载: ${file.name}`;
-                document.getElementById('generateBtn').disabled = false;
-                analyzePitch(originalBuffer);
-                visualizeBuffer();
+                recordStatus.innerText = "正在加载...";
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    originalBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+recordStatus.innerText = `已就绪: ${file.name}`;
+                    document.getElementById('generateBtn').disabled = false;
+                    analyzePitch(originalBuffer);
+                    visualizeBuffer();
+                } catch(err) {
+                    alert("文件加载失败，请确保是从是音频文件");
+                }
             }
         });
 
-        // --- 4. 可视化波形与音高 ---
-
-        // 实时录音波形
+        // --- 画图相关 ---
         function visualizeLive() {
             bufferLength = analyser.frequencyBinCount;
             dataArray = new Uint8Array(bufferLength);
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
-
             function draw() {
                 drawVisual = requestAnimationFrame(draw);
                 analyser.getByteTimeDomainData(dataArray);
-
                 canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                canvasCtx.fillRect(0, 0, canvas.width, canvas.height); // 残影效果
+                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
                 canvasCtx.lineWidth = 2;
                 canvasCtx.strokeStyle = '#00d4ff';
                 canvasCtx.beginPath();
-
                 const sliceWidth = canvas.width * 1.0 / bufferLength;
                 let x = 0;
-
                 for(let i = 0; i < bufferLength; i++) {
                     const v = dataArray[i] / 128.0;
                     const y = v * canvas.height/2;
-
-                    if(i === 0) canvasCtx.moveTo(x, y);
-                    else canvasCtx.lineTo(x, y);
+                    if(i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
                     x += sliceWidth;
                 }
                 canvasCtx.lineTo(canvas.width, canvas.height/2);
                 canvasCtx.stroke();
-                
-                // 简单的实时音高检测
                 detectPitchLive();
             }
             draw();
         }
 
-        // 静态波形（录音/上传后）
         function visualizeBuffer() {
-            const rawData = originalBuffer.getChannelData(0); // 取左声道
+            if(!originalBuffer) return;
+            const rawData = originalBuffer.getChannelData(0);
             const step = Math.ceil(rawData.length / canvas.width);
             const amp = canvas.height / 2;
-            
             canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
             canvasCtx.fillStyle = '#00d4ff';
             for(let i = 0; i < canvas.width; i++){
-                let min = 1.0;
-                let max = -1.0;
+                let min = 1.0, max = -1.0;
                 for (let j=0; j<step; j++) {
                     const datum = rawData[i*step + j];
-                    if (datum < min) min = datum;
-                    if (datum > max) max = datum;
+                    if (datum < min) min = datum; if (datum > max) max = datum;
                 }
                 canvasCtx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
             }
         }
 
-        // 简单的自相关算法检测音高
-        function autoCorrelate(buf, sampleRate) {
-            let SIZE = buf.length;
-            let rms = 0;
-            for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
-            rms = Math.sqrt(rms / SIZE);
-            if (rms < 0.01) return -1; // 声音太小
-
-            let r1 = 0, r2 = SIZE - 1, thres = 0.2;
-            for (let i = 0; i < SIZE / 2; i++)
-                if (Math.abs(buf[i]) < thres) { r1 = i; break; }
-            for (let i = 1; i < SIZE / 2; i++)
-                if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
-
-            buf = buf.slice(r1, r2);
-            SIZE = buf.length;
-
-            let c = new Array(SIZE).fill(0);
-            for (let i = 0; i < SIZE; i++)
-                for (let j = 0; j < SIZE - i; j++)
-                    c[i] = c[i] + buf[j] * buf[j + i];
-
-            let d = 0; while (c[d] > c[d + 1]) d++;
-            let maxval = -1, maxpos = -1;
-            for (let i = d; i < SIZE; i++) {
-                if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
-            }
-            let T0 = maxpos;
-            return sampleRate / T0;
-        }
-
+        // --- 实时音高检测 ---
         function detectPitchLive() {
             const buffer = new Float32Array(analyser.fftSize);
             analyser.getFloatTimeDomainData(buffer);
             const pitch = autoCorrelate(buffer, audioCtx.sampleRate);
-            
             if (pitch !== -1 && pitch > 50 && pitch < 3000) {
-                document.getElementById('currentPitch').innerText = Math.round(pitch) + " Hz";
+                document.getElementById('currentPitch').innerText = Math.round(pitch);
                 let noteNum = 12 * (Math.log(pitch / 440) / Math.log(2)) + 69;
-                let note = noteStrings[Math.round(noteNum) % 12];
-                document.getElementById('currentNote').innerText = note;
+                document.getElementById('currentNote').innerText = noteStrings[Math.round(noteNum) % 12];
             }
         }
 
-        // --- 核心算法：生成和声 (简单的重采样+窗函数处理) ---
-        // 注意：高质量的变调（不变速）很难在纯前端JS单线程中实时完美实现。
-        // 这里我们使用离线处理(OfflineAudioContext)来实现一个简化版的 "Granular Pitch Shift" 逻辑。
-        
-        async function generateHarmonies() {
+        function autoCorrelate(buf, sampleRate) {
+            let SIZE = buf.length;
+            let rms = 0;
+            for (let i=0; i<SIZE; i++) rms += buf[i]*buf[i];
+            rms = Math.sqrt(rms/SIZE);
+            if (rms<0.01) return -1;
+            let r1=0, r2=SIZE-1, thres=0.2;
+            for (let i=0; i<SIZE/2; i++) if (Math.abs(buf[i])<thres) { r1=i; break; }
+            for (let i=1; i<SIZE/2; i++) if (Math.abs(buf[SIZE-i])<thres) { r2=SIZE-i; break; }
+            buf = buf.slice(r1, r2);
+            SIZE = buf.length;
+            let c = new Array(SIZE).fill(0);
+            for (let i=0; i<SIZE; i++) for (let j=0; j<SIZE-i; j++) c[i] = c[i] + buf[j]*buf[j+i];
+            let d=0; while (c[d]>c[d+1]) d++;
+            let maxval=-1, maxpos=-1;
+            for (let i=d; i<SIZE; i++) if (c[i]>maxval) { maxval=c[i]; maxpos=i; }
+            return sampleRate/maxpos;
+        }
+
+        // --- 4. 生成和声 (核心功能) ---
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            await initAudio();
             if(!originalBuffer) return;
             const statusDiv = document.getElementById('genStatus');
             statusDiv.style.display = "block";
@@ -490,89 +483,49 @@
                 { id: 'h3', enable: 'voice3Enable', interval: 'voice3Interval' }
             ];
 
-            for (let v of voices) {
-                if (document.getElementById(v.enable).checked) {
-                    statusDiv.innerText = `正在生成 ${v.id.toUpperCase()}...`;
-                    // 获取需要的半音偏移量
-                    const semitones = parseInt(document.getElementById(v.interval).value);
-                    // 生成变调后的Buffer
-                    harmonyBuffers[v.id] = await pitchShiftBuffer(originalBuffer, semitones);
-                    
-                    // 激活UI
-                    document.getElementById('track'+v.id.replace('h','')).style.opacity = "1";
-                } else {
-                    harmonyBuffers[v.id] = null;
-                    document.getElementById('track'+v.id.replace('h','')).style.opacity = "0.5";
+            try {
+                for (let v of voices) {
+                    if (document.getElementById(v.enable).checked) {
+                        statusDiv.innerText = `正在计算: ${v.id.toUpperCase()}...`;
+await new Promise(r => setTimeout(r, 10)); // 防止UI卡死
+                        const semitones = parseInt(document.getElementById(v.interval).value);
+                        harmonyBuffers[v.id] = await pitchShiftBuffer(originalBuffer, semitones);
+                        document.getElementById('track'+v.id.replace('h','')).style.opacity = "1";
+                    } else {
+                        harmonyBuffers[v.id] = null;
+                        document.getElementById('track'+v.id.replace('h','')).style.opacity = "0.5";
+}
                 }
+                statusDiv.innerText = "✅ 生成完毕！请点击下方播放按钮";
+                document.getElementById('playAllBtn').disabled = false;
+                document.getElementById('stopAllBtn').disabled = false;
+                document.getElementById('downloadBtn').disabled = false;
+            } catch (e) {
+                console.error(e);
+                statusDiv.innerText = "❌ 生成出错";
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
             }
+        });
 
-            statusDiv.innerText = "生成完成！";
-            document.getElementById('playAllBtn').disabled = false;
-            document.getElementById('stopAllBtn').disabled = false;
-            document.getElementById('downloadBtn').disabled = false;
-            document.getElementById('generateBtn').disabled = false;
-        }
-
-        document.getElementById('generateBtn').addEventListener('click', generateHarmonies);
-
-        // *** 核心变调函数 ***
-        // 算法原理：将音频切成小片段(grains)，改变播放速率以改变音高，
-        // 然后重叠这些片段以保持原始时长。
+        // 简易变调算法 (Granular Synthesis)
         async function pitchShiftBuffer(buffer, semitones) {
             if (semitones === 0) return buffer;
-
-            // 计算音高比率
             const ratio = Math.pow(2, semitones / 12);
+            const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, buffer.duration * buffer.sampleRate, buffer.sampleRate);
+            const outputBuffer = offlineCtx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+            const grainSize = 0.05; 
             
-            // 使用 OfflineAudioContext 进行渲染
-            const offlineCtx = new OfflineAudioContext(
-                buffer.numberOfChannels,
-                buffer.duration * buffer.sampleRate,
-                buffer.sampleRate
-            );
-
-            // 颗粒合成参数
-            const grainSize = 0.05; // 50ms 颗粒大小
-            const overlap = 0.025;  // 25ms 重叠
-            
-            const sourceData = buffer.getChannelData(0); // 简化：只处理单声道或左声道然后复制
-            
-            // 为了简化 Demo 且保证性能，这里使用一种 naive 的方法：
-            // 创建多个 AudioBufferSourceNode，改变 playbackRate，但通过延迟启动来模拟时间伸缩 (Time Stretching) 
-            // 或者是简单地接受只有音调变化 (Chipmuk effect)？ 
-            // -> 为了和声和谐，必须保持原始时长。
-            // -> 这里实现一个极简的 Granular 逻辑：
-
-            // 创建一个新的 Buffer
-            const outputBuffer = offlineCtx.createBuffer(
-                buffer.numberOfChannels,
-                buffer.length,
-                buffer.sampleRate
-            );
-
-            // 简单的 OLA (Overlap-Add) 变调算法 - JS 实现版
-            // 这比 Web Audio API 节点更底层
             for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
                 const inputData = buffer.getChannelData(channel);
                 const outputData = outputBuffer.getChannelData(channel);
-                
-                // 颗粒大小 (samples)
                 const grainSizeSamples = Math.round(grainSize * buffer.sampleRate);
                 
-                // 我们在输出上移动，填充对应的内容
                 for (let i = 0; i < inputData.length; i += grainSizeSamples / 2) {
-                    // 在原音频中的位置，以保持节奏同步
                     const inputOffset = Math.floor(i); 
-                    
                     if (inputOffset + grainSizeSamples >= inputData.length) break;
-
-                    // 写入颗粒
                     for (let j = 0; j < grainSizeSamples; j++) {
-                        // 在颗粒内部，我们通过比率(ratio)读取数据来实现变调
-                        // 如果 ratio > 1 (升调)，我们在更短的数据上采样
                         const targetIdx = Math.floor(inputOffset + j * ratio);
-                        
-                        // 简单的汉宁窗 (Hanning Window) 避免爆音
                         const window = 0.5 * (1 - Math.cos(2 * Math.PI * j / grainSizeSamples));
                         if (targetIdx < inputData.length && (i+j) < outputData.length) {
                              outputData[i + j] += inputData[targetIdx] * window;
@@ -580,79 +533,39 @@
                     }
                 }
             }
-
             return outputBuffer;
         }
-// --- 5. 播放控制 ---
 
-        function updateMixVolume(track, val) {
-            const gain = val / 100;
-            if (gainNodes[track]) {
-                gainNodes[track].gain.value = gain;
-            }
-            // 存储音量偏好，供下次播放使用
-            document.getElementById(track === 'main' ? 'volMain' : track === 'h1' ? 'volH1' : track === 'h2' ? 'volH2' : 'volH3').dataset.gain = gain;
-        }
-
-        function toggleMute(track) {
-            const btn = document.getElementById(track === 'main' ? 'btnMuteMain' : track === 'h1' ? 'btnMuteH1' : track === 'h2' ? 'btnMuteH2' : 'btnMuteH3');
-            let slider = document.getElementById(track === 'main' ? 'volMain' : track === 'h1' ? 'volH1' : track === 'h2' ? 'volH2' : 'volH3');
-            
-            if (gainNodes[track]) {
-                if (gainNodes[track].gain.value > 0) {
-                    // Mute
-                    slider.dataset.lastVal = gainNodes[track].gain.value;
-                    gainNodes[track].gain.value = 0;
-                    slider.value = 0;
-                    btn.innerText = "🔇";
-                } else {
-                    // Unmute
-                    const lastVal = slider.dataset.lastVal || 1;
-                    gainNodes[track].gain.value = lastVal;
-                    slider.value = lastVal * 100;
-                    btn.innerText = "🔊";
-                }
-            }
-        }
-
-        document.getElementById('playAllBtn').addEventListener('click', () => {
+        // --- 5. 播放控制 ---
+document.getElementById('playAllBtn').addEventListener('click', async () => {
+            await initAudio(); // 关键：点击播放时唤醒音频环境
             if (isPlaying) stopAll();
-            startPlayback();
+            else startPlayback();
         });
 
         document.getElementById('stopAllBtn').addEventListener('click', stopAll);
 
         function startPlayback() {
-            if (!originalBuffer) return;
+            if (!originalBuffer) return alert("请先录音或上传！");
+            
+            stopAll();
             activeSources = [];
             gainNodes = {};
 
-            // 辅助函数：播放单个 Buffer
             function playTrack(buffer, id, volInputId) {
                 if (!buffer) return;
                 const source = audioCtx.createBufferSource();
                 source.buffer = buffer;
                 const gainNode = audioCtx.createGain();
-                
-                // 读取当前滑块音量
+                // 设置音量
                 const vol = document.getElementById(volInputId).value / 100;
                 gainNode.gain.value = vol;
-
+                
                 source.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 source.start(0);
-                
                 activeSources.push(source);
                 gainNodes[id] = gainNode;
-                
-                // 监听结束
-source.onended = () => {
-                   // 简单处理：当主轨道结束时重置状态
-                   if(id === 'main') {
-                       isPlaying = false;
-                       document.getElementById('playAllBtn').innerHTML = "▶";
-                   }
-                };
             }
 
             playTrack(originalBuffer, 'main', 'volMain');
@@ -661,32 +574,54 @@ source.onended = () => {
             if(harmonyBuffers.h3) playTrack(harmonyBuffers.h3, 'h3', 'volH3');
 
             isPlaying = true;
-            document.getElementById('playAllBtn').innerHTML = "⏸"; // 此时仅作为指示
+            document.getElementById('playAllBtn').innerText = "⏸";
+            
+            // 简单的自动停止计时器
+            setTimeout(() => {
+                if(isPlaying) stopAll();
+            }, originalBuffer.duration * 1000 + 500);
         }
 
         function stopAll() {
-            activeSources.forEach(s => {
-                try { s.stop(); } catch(e){}
-            });
+            activeSources.forEach(s => { try{s.stop()}catch(e){} });
             activeSources = [];
             isPlaying = false;
-            document.getElementById('playAllBtn').innerHTML = "▶";
+            document.getElementById('playAllBtn').innerText = "▶";
         }
 
-        // --- 6. 导出功能 ---
-        
+        // --- 音量与静音 ---
+        window.updateMixVolume = function(track, val) {
+            if (gainNodes[track]) gainNodes[track].gain.value = val / 100;
+        };
+
+        window.toggleMute = function(track) {
+            const sliderId = track === 'main' ? 'volMain' : track === 'h'+track.replace('h','');
+            const slider = document.getElementById(sliderId);
+            const btnId = track === 'main' ? 'btnMuteMain' : 'btnMute'+track.toUpperCase();
+            
+            if (slider.value > 0) {
+                slider.dataset.prev = slider.value;
+                slider.value = 0;
+                if(gainNodes[track]) gainNodes[track].gain.value = 0;
+                document.getElementById(btnId).innerText = "🔇";
+            } else {
+                const prev = slider.dataset.prev || 50;
+                slider.value = prev;
+                if(gainNodes[track]) gainNodes[track].gain.value = prev / 100;
+                document.getElementById(btnId).innerText = "🔊";
+            }
+        };
+
+        // --- 导出 ---
         document.getElementById('downloadBtn').addEventListener('click', async () => {
              if (!originalBuffer) return;
              const btn = document.getElementById('downloadBtn');
-             btn.innerText = "⏳ 正在合成...";
+             btn.innerText = "⏳ 合成中...";
              btn.disabled = true;
 
-             // 使用 OfflineAudioContext 进行混音导出
-             const duration = originalBuffer.duration;
-             const offlineCtx = new OfflineAudioContext(2, duration * 44100, 44100);
-
+             const offlineCtx = new OfflineAudioContext(2, originalBuffer.duration * 44100, 44100);
              function addOfflineTrack(buffer, volId) {
-if(!buffer) return;
+                 if(!buffer) return;
                  const src = offlineCtx.createBufferSource();
                  src.buffer = buffer;
                  const gn = offlineCtx.createGain();
@@ -701,98 +636,62 @@ if(!buffer) return;
              if(harmonyBuffers.h2) addOfflineTrack(harmonyBuffers.h2, 'volH2');
              if(harmonyBuffers.h3) addOfflineTrack(harmonyBuffers.h3, 'volH3');
 
-             const renderedBuffer = await offlineCtx.startRendering();
-// 将 AudioBuffer 转为 WAV 文件
-             const wavBlob = bufferToWave(renderedBuffer, renderedBuffer.length);
-             const url = URL.createObjectURL(wavBlob);
+             const rendered = await offlineCtx.startRendering();
+             const wav = bufferToWave(rendered, rendered.length);
+             const url = URL.createObjectURL(wav);
              const link = document.createElement('a');
              link.href = url;
-             link.download = 'ai_harmony_mix.wav';
+             link.download = 'ai_harmony_result.wav';
              link.click();
-             
-             btn.innerText = "📥 导出混音 (WAV)";
+             btn.innerText = "📥 导出WAV";
              btn.disabled = false;
         });
 
-        // 简单的 WAV 编码器
         function bufferToWave(abuffer, len) {
-            let numOfChan = abuffer.numberOfChannels,
+let numOfChan = abuffer.numberOfChannels,
                 length = len * numOfChan * 2 + 44,
                 buffer = new ArrayBuffer(length),
                 view = new DataView(buffer),
                 channels = [], i, sample,
-                offset = 0,
-                pos = 0;
-
-            // write WAVE header
-            setUint32(0x46464952);                         // "RIFF"
-            setUint32(length - 8);                         // file length - 8
-            setUint32(0x45564157);                         // "WAVE"
-
-            setUint32(0x20746d66);                         // "fmt " chunk
-            setUint32(16);                                 // length = 16
-            setUint16(1);                                  // PCM (uncompressed)
-            setUint16(numOfChan);
-            setUint32(abuffer.sampleRate);
-            setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-            setUint16(numOfChan * 2);                      // block-align
-            setUint16(16);                                 // 16-bit (hardcoded in this demo)
-
-            setUint32(0x61746164);                         // "data" - chunk
-            setUint32(length - pos - 4);                   // chunk length
-
-            // write interleaved data
-            for(i = 0; i < abuffer.numberOfChannels; i++)
-                channels.push(abuffer.getChannelData(i));
-
+                offset = 0, pos = 0;
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+            for(i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
             while(pos < len) {
                 for(i = 0; i < numOfChan; i++) {
-                    // interleave channels
-                    sample = Math.max(-1, Math.min(1, channels[i][pos])); // clamp
-                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0; // scale to 16-bit signed int
-                    view.setInt16(44 + offset, sample, true);
-                    offset += 2;
+                    sample = Math.max(-1, Math.min(1, channels[i][pos]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
+                    view.setInt16(44 + offset, sample, true); offset += 2;
                 }
                 pos++;
             }
-
             return new Blob([buffer], {type: "audio/wav"});
-function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
         }
 
-        // --- 7. 音高轨迹分析 (占位符) ---
-        // 真正的全曲音高检测过于复杂，这里生成一个基于振幅的伪波形图来填充UI
+        // 音高可视化分析 (伪波形)
         function analyzePitch(buffer) {
             const canvasP = document.getElementById('pitchCanvas');
             const ctx = canvasP.getContext('2d');
             const data = buffer.getChannelData(0);
-            const step = Math.ceil(data.length / 400); // 下采样
-            
+            const step = Math.ceil(data.length / 400); 
             canvasP.width = canvasP.offsetWidth;
             canvasP.height = canvasP.offsetHeight;
             ctx.clearRect(0,0, canvasP.width, canvasP.height);
-
             ctx.beginPath();
             ctx.moveTo(0, canvasP.height/2);
             ctx.strokeStyle = "#f39c12";
             ctx.lineWidth = 2;
-
             for(let i=0; i < 400; i++) {
                 let val = data[i*step];
-                // 模拟音高：振幅越大这里画得越高，加一点随机
-                let y = canvasP.height/2 - (Math.abs(val) * 100) - (Math.random()*10); 
-                y = Math.max(10, Math.min(canvasP.height-10, y));
+                let y = canvasP.height/2 - (val * 100); 
                 ctx.lineTo(i * (canvasP.width/400), y);
             }
             ctx.stroke();
-            
-            // 下方加一点文字
-            ctx.fillStyle = "#888";
-            ctx.font = "12px Arial";
-            ctx.fillText(`时长: ${buffer.duration.toFixed(2)}s | 采样率: ${buffer.sampleRate}Hz`, 10, canvasP.height - 10);
         }
-
     </script>
 </body>
 </html>
